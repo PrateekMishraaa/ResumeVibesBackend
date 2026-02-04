@@ -3,6 +3,8 @@ const dotenv = require('dotenv');
 dotenv.config()
 const mongoose = require('mongoose');
 const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
 const connectDB = require('./config/database');
 
 // Load environment variables
@@ -13,6 +15,24 @@ const app = express();
 
 // Connect to MongoDB
 connectDB();
+
+// Debug: Check if route files exist
+console.log('🔍 Checking route files...');
+const routeFiles = {
+  'authRoutes': './routes/authRoutes.js',
+  'resume.routes': './routes/resume.routes.js',
+  'job.routes': './routes/job.routes.js',
+  'ai.routes': './routes/ai.routes.js'
+};
+
+Object.entries(routeFiles).forEach(([name, filePath]) => {
+  const fullPath = path.join(__dirname, filePath);
+  if (fs.existsSync(fullPath)) {
+    console.log(`✅ ${name}: ${filePath} - EXISTS`);
+  } else {
+    console.log(`❌ ${name}: ${filePath} - MISSING`);
+  }
+});
 
 // CORS 配置 - 开发环境允许所有来源
 const corsOptions = {
@@ -56,11 +76,77 @@ app.use((req, res, next) => {
     next();
 });
 
-// Routes
-app.use('/api/auth', require('./routes/authRoutes.js'));
-app.use('/api/resumes', require('./routes/resume.routes'));
-app.use('/api/jobs', require('./routes/job.routes'));
-app.use('/api/ai', require('./routes/ai.routes'));
+// Routes with error handling
+try {
+    // Check and load auth routes
+    const authRoutesPath = path.join(__dirname, 'routes', 'authRoutes.js');
+    if (fs.existsSync(authRoutesPath)) {
+        app.use('/api/auth', require('./routes/authRoutes.js'));
+        console.log('✅ Loaded auth routes');
+    } else {
+        console.log('⚠️  authRoutes.js not found, creating placeholder route');
+        app.use('/api/auth', (req, res) => {
+            res.status(501).json({ message: 'Auth routes not implemented yet' });
+        });
+    }
+} catch (error) {
+    console.error('❌ Error loading auth routes:', error.message);
+}
+
+try {
+    // Check and load resume routes
+    const resumeRoutesPath = path.join(__dirname, 'routes', 'resume.routes.js');
+    if (fs.existsSync(resumeRoutesPath)) {
+        app.use('/api/resumes', require('./routes/resume.routes.js'));
+        console.log('✅ Loaded resume routes');
+    } else {
+        console.log('⚠️  resume.routes.js not found, creating placeholder route');
+        app.use('/api/resumes', (req, res) => {
+            res.status(501).json({ message: 'Resume routes not implemented yet' });
+        });
+    }
+} catch (error) {
+    console.error('❌ Error loading resume routes:', error.message);
+}
+
+try {
+    // Check and load job routes - THIS IS THE PROBLEMATIC ONE
+    const jobRoutesPath = path.join(__dirname, 'routes', 'job.routes.js');
+    if (fs.existsSync(jobRoutesPath)) {
+        app.use('/api/jobs', require('./routes/job.routes.js'));
+        console.log('✅ Loaded job routes');
+    } else {
+        console.log('⚠️  job.routes.js not found, creating placeholder route');
+        app.use('/api/jobs', (req, res) => {
+            res.status(501).json({ message: 'Job routes not implemented yet' });
+        });
+    }
+} catch (error) {
+    console.error('❌ Error loading job routes:', error.message);
+    // Create a safe fallback
+    app.use('/api/jobs', (req, res) => {
+        res.json({ 
+            message: 'Job routes placeholder',
+            status: 'Routes will be implemented soon'
+        });
+    });
+}
+
+try {
+    // Check and load AI routes
+    const aiRoutesPath = path.join(__dirname, 'routes', 'ai.routes.js');
+    if (fs.existsSync(aiRoutesPath)) {
+        app.use('/api/ai', require('./routes/ai.routes.js'));
+        console.log('✅ Loaded AI routes');
+    } else {
+        console.log('⚠️  ai.routes.js not found, creating placeholder route');
+        app.use('/api/ai', (req, res) => {
+            res.status(501).json({ message: 'AI routes not implemented yet' });
+        });
+    }
+} catch (error) {
+    console.error('❌ Error loading AI routes:', error.message);
+}
 
 // Health check route
 app.get('/api/health', (req, res) => {
@@ -72,7 +158,23 @@ app.get('/api/health', (req, res) => {
             allowedOrigins: corsOptions.origin.toString(),
             method: req.method,
             origin: req.headers.origin
+        },
+        routes: {
+            auth: fs.existsSync(path.join(__dirname, 'routes', 'authRoutes.js')),
+            resumes: fs.existsSync(path.join(__dirname, 'routes', 'resume.routes.js')),
+            jobs: fs.existsSync(path.join(__dirname, 'routes', 'job.routes.js')),
+            ai: fs.existsSync(path.join(__dirname, 'routes', 'ai.routes.js'))
         }
+    });
+});
+
+// Root route
+app.get('/', (req, res) => {
+    res.json({
+        message: 'ResumeVibes Backend API',
+        status: 'running',
+        version: '1.0.0',
+        documentation: '/api/health for system status'
     });
 });
 
@@ -80,7 +182,8 @@ app.get('/api/health', (req, res) => {
 app.use('*', (req, res) => {
     res.status(404).json({
         success: false,
-        message: 'Route not found'
+        message: 'Route not found',
+        requestedPath: req.originalUrl
     });
 });
 
@@ -112,4 +215,5 @@ app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🌐 CORS enabled for: ${process.env.CLIENT_URL || 'http://localhost:5173'}`);
+    console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
 });
