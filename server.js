@@ -45,8 +45,8 @@ const corsOptions = {
         // 生产环境：只允许特定域名
         const allowedOrigins = [
             process.env.CLIENT_URL,
-            'http://localhost:5173',
-            'http://localhost:3000'
+            'https://cool-tartufo-bb5fd7.netlify.app/',
+            'https://resumevibesbackend.onrender.com'
         ].filter(Boolean);
         
         if (!origin || allowedOrigins.indexOf(origin) !== -1) {
